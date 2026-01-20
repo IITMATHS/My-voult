@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureCloud | Private Vault</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        /* --- 4. Attractive Modern Design --- */
+        :root {
+            --primary: #6C63FF;
+            --secondary: #4CAF50;
+            --danger: #FF6584;
+            --dark: #2F2E41;
+            --light: #F9F9F9;
+            --glass: rgba(255, 255, 255, 0.85);
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            /* Cool animated background */
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .container {
+            width: 90%;
+            max-width: 500px; /* Mobile friendly width */
+            background: var(--glass);
+            backdrop-filter: blur(10px); /* Blurry glass effect */
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            transition: all 0.3s ease;
+        }
+
+        h2 { text-align: center; color: var(--dark); margin-bottom: 20px; }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box; /* Fixes padding issues */
+            outline: none;
+            transition: 0.3s;
+        }
+        
+        input:focus { border-color: var(--primary); }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.3s;
+            margin-top: 10px;
+        }
+
+        button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(108, 99, 255, 0.4); }
+        
+        /* Utility Classes */
+        .hidden { display: none !important; }
+        .text-center { text-align: center; }
+        .small-text { font-size: 12px; color: #666; margin-top: 10px; }
+
+        /* Dashboard Specifics */
+        .file-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; }
+        .file-item {
+            background: white;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .btn-sm { width: auto; padding: 5px 10px; font-size: 12px; margin: 0 2px; }
+        .btn-del { background-color: var(--danger); }
+        .btn-down { background-color: var(--secondary); }
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen" class="container">
+        <h2 id="auth-title">Welcome Back</h2>
+        <p class="text-center" style="margin-bottom: 20px;">Please login to access your vault.</p>
+        
+        <input type="text" id="username" placeholder="Enter Username">
+        <input type="password" id="password" placeholder="Enter Password">
+        
+        <button onclick="handleLogin()">Login</button>
+        
+        <p class="text-center small-text" id="setup-msg">
+            First time? <a href="#" onclick="toggleSetup()" style="color: var(--primary);">Create an ID</a>
+        </p>
+    </div>
+
+    <div id="dashboard-screen" class="container hidden">
+        <header style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>📂 My Vault</h3>
+            <button onclick="logout()" class="btn-sm" style="background: #ccc; color: black;">Logout</button>
+        </header>
+        
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; border: 2px dashed var(--primary); margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;">Select file to secure</p>
+            <input type="file" id="file-input" style="border: none;">
+            <button onclick="uploadFile()">➕ Save to Vault</button>
+        </div>
+
+        <h4>Stored Files:</h4>
+        <ul id="file-list" class="file-list"></ul>
+    </div>
+
+    <script>
+        // --- 2. Database for Login (LocalStorage) ---
+        // We use localStorage to save your ID/Pass because it's persistent and free.
+        
+        const authScreen = document.getElementById('auth-screen');
+        const dashboardScreen = document.getElementById('dashboard-screen');
+        const authTitle = document.getElementById('auth-title');
+        const setupMsg = document.getElementById('setup-msg');
+        
+        let isSetupMode = false;
+
+        // Check if user already exists
+        if (!localStorage.getItem('vaultUser')) {
+            toggleSetup(); // Force setup mode if no user exists
+            setupMsg.style.display = 'none'; // Hide "First time?" link
+        }
+
+        function toggleSetup() {
+            isSetupMode = !isSetupMode;
+            if (isSetupMode) {
+                authTitle.innerText = "Create Secure ID";
+                document.querySelector('button').innerText = "Create Account";
+            } else {
+                authTitle.innerText = "Welcome Back";
+                document.querySelector('button').innerText = "Login";
+            }
+        }
+
+        function handleLogin() {
+            const userIn = document.getElementById('username').value;
+            const passIn = document.getElementById('password').value;
+            
+            if(!userIn || !passIn) return alert("Please fill all fields");
+
+            if (isSetupMode) {
+                // Create Account
+                localStorage.setItem('vaultUser', userIn);
+                localStorage.setItem('vaultPass', passIn);
+                alert("Account Created! You can now log in.");
+                location.reload();
+            } else {
+                // Login Check
+                const storedUser = localStorage.getItem('vaultUser');
+                const storedPass = localStorage.getItem('vaultPass');
+
+                if (userIn === storedUser && passIn === storedPass) {
+                    authScreen.classList.add('hidden');
+                    dashboardScreen.classList.remove('hidden');
+                    loadFiles(); // Load DB
+                } else {
+                    alert("Wrong Username or Password!");
+                }
+            }
+        }
+
+        function logout() {
+            location.reload();
+        }
+
+        // --- 3. Database for Files (IndexedDB) ---
+        // Same secure logic as before, keeps files in the browser
+        let db;
+        const request = indexedDB.open("SecureVaultDB", 1);
+        
+        request.onupgradeneeded = (e) => {
+            db = e.target.result;
+            if (!db.objectStoreNames.contains("files")) {
+                db.createObjectStore("files", { keyPath: "id", autoIncrement: true });
+            }
+        };
+        request.onsuccess = (e) => db = e.target.result;
+
+        function uploadFile() {
+            const input = document.getElementById('file-input');
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const transaction = db.transaction(["files"], "readwrite");
+                transaction.objectStore("files").add({
+                    name: file.name,
+                    data: e.target.result,
+                    date: new Date().toLocaleDateString()
+                });
+                transaction.oncomplete = () => {
+                    alert("Saved!");
+                    input.value = "";
+                    loadFiles();
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function loadFiles() {
+            const list = document.getElementById('file-list');
+            list.innerHTML = "";
+            const transaction = db.transaction(["files"], "readonly");
+            transaction.objectStore("files").openCursor().onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) {
+                    const li = document.createElement('li');
+                    li.className = 'file-item';
+                    li.innerHTML = `
+                        <div><b>${cursor.value.name}</b><br><small>${cursor.value.date}</small></div>
+                        <div>
+                            <a href="${cursor.value.data}" download="${cursor.value.name}" class="btn-sm btn-down" style="text-decoration:none; color:white;">⬇</a>
+                            <button onclick="deleteFile(${cursor.key})" class="btn-sm btn-del">x</button>
+                        </div>
+                    `;
+                    list.appendChild(li);
+                    cursor.continue();
+                }
+            };
+        }
+
+        function deleteFile(id) {
+            if(confirm("Delete this file?")) {
+                const transaction = db.transaction(["files"], "readwrite");
+                transaction.objectStore("files").delete(id);
+                transaction.oncomplete = () => loadFiles();
+            }
+        }
+    </script>
+</body>
+  </html>
